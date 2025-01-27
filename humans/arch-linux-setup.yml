@@ -1,0 +1,99 @@
+---
+- name: Install Arch Linux with KDE Plasma
+  hosts: arch_live
+  become: true
+  vars:
+    disk: "/dev/sda"  # Replace with your target disk
+    root_password: "rootpassword"
+    hostname: "archlinux"
+    username: "user"
+    user_password: "userpassword"
+    locale: "en_US.UTF-8"
+    timezone: "America/New_York"
+    packages:  # Essential and KDE Plasma-related packages
+      - base
+      - linux
+      - linux-firmware
+      - networkmanager
+      - sddm
+      - plasma-meta
+      - kde-applications
+      - xorg
+      - git
+      - curl
+      - wget
+      - vim
+      - htop
+      - base-devel
+      - bash-completion
+      - sudo
+      - alsa-utils
+      - pulseaudio
+      - pulseaudio-alsa
+      - firefox
+      - nano
+
+  tasks:
+    - name: Partition the disk
+      shell: |
+        parted -s {{ disk }} mklabel gpt
+        parted -s {{ disk }} mkpart ESP fat32 1MiB 513MiB
+        parted -s {{ disk }} set 1 boot on
+        parted -s {{ disk }} mkpart primary ext4 513MiB 100%
+
+    - name: Format the partitions
+      shell: |
+        mkfs.fat -F32 {{ disk }}1
+        mkfs.ext4 {{ disk }}2
+
+    - name: Mount the partitions
+      shell: |
+        mount {{ disk }}2 /mnt
+        mkdir -p /mnt/boot
+        mount {{ disk }}1 /mnt/boot
+
+    - name: Install base system
+      shell: |
+        pacstrap /mnt {{ packages | join(' ') }}
+
+    - name: Generate fstab
+      shell: |
+        genfstab -U /mnt >> /mnt/etc/fstab
+
+    - name: Configure chroot environment
+      copy:
+        content: |
+          ln -sf /usr/share/zoneinfo/{{ timezone }} /etc/localtime
+          hwclock --systohc
+          echo "{{ locale }}" > /etc/locale.gen
+          locale-gen
+          echo "LANG={{ locale }}" > /etc/locale.conf
+          echo "{{ hostname }}" > /etc/hostname
+          echo "127.0.0.1 localhost" >> /etc/hosts
+          echo "::1       localhost" >> /etc/hosts
+          echo "127.0.1.1 {{ hostname }}.localdomain {{ hostname }}" >> /etc/hosts
+          echo -e "{{ root_password }}\n{{ root_password }}" | passwd root
+          systemctl enable NetworkManager
+          systemctl enable sddm
+        dest: /mnt/root/setup.sh
+        mode: "0755"
+
+    - name: Run chroot setup script
+      shell: arch-chroot /mnt /root/setup.sh
+
+    - name: Create user
+      shell: |
+        arch-chroot /mnt useradd -m -G wheel -s /bin/bash {{ username }}
+        echo -e "{{ user_password }}\n{{ user_password }}" | arch-chroot /mnt passwd {{ username }}
+        echo "%wheel ALL=(ALL) ALL" >> /mnt/etc/sudoers
+
+    - name: Install bootloader
+      shell: |
+        arch-chroot /mnt bootctl install
+        echo "default arch" > /mnt/boot/loader/loader.conf
+        echo -e "title Arch Linux\nlinux /vmlinuz-linux\ninitrd /initramfs-linux.img\noptions root=UUID=$(blkid -s UUID -o value {{ disk }}2) rw quiet splash" > /mnt/boot/loader/entries/arch.conf
+
+    - name: Clean up
+      shell: |
+        umount -R /mnt
+        reboot
