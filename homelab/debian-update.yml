@@ -10,5 +10,18 @@
     - name: Upgrade all packages
       apt:
         upgrade: dist
-        autoremove: yes
         autoclean: yes
+
+    - name: Remove unneeded packages
+      apt:
+        autoremove: yes
+        
+    - name: Check if a reboot is required.
+      ansible.builtin.stat:
+        path: /var/run/reboot-required
+        get_md5: no
+      register: reboot_file
+      
+    - name: Reboot the server if required
+      ansible.builtin.reboot:
+        when: reboot_file.stat.exists == true
