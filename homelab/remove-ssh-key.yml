@@ -1,0 +1,10 @@
+---
+- name: Add SSH key
+  hosts: all
+  become: yes
+  tasks:
+    - name: Remove SSH key from authorized_keys
+      authorized_key:
+        user: "{{ ansible_user }}"
+        state: absent
+        key: "{{ lookup('file', '~/.ssh/id_rsa_homelab.pub') }}"
