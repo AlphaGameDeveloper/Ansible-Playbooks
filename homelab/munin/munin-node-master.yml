@@ -1,0 +1,48 @@
+- hosts: penguin
+  become: yes
+  roles:
+    - geerlingguy.munin
+
+  tasks:
+    - name: Install Nginx
+      apt:
+        name: nginx
+        state: present
+        update_cache: yes
+
+    - name: Configure Nginx for Munin
+      copy:
+        dest: /etc/nginx/sites-available/munin
+        content: |
+          server {
+              listen 80;
+              server_name localhost;
+
+              location / {
+                  root /var/cache/munin/www;
+                  index index.html index.htm;
+              }
+
+              location /static {
+                  alias /etc/munin/static;
+              }
+
+              error_log /var/log/nginx/munin_error.log;
+              access_log /var/log/nginx/munin_access.log;
+          }
+
+    - name: Enable Munin site
+      file:
+        src: /etc/nginx/sites-available/munin
+        dest: /etc/nginx/sites-enabled/munin
+        state: link
+
+    - name: Disable default site
+      file:
+        path: /etc/nginx/sites-enabled/default
+        state: absent
+
+    - name: Restart Nginx
+      service:
+        name: nginx
+        state: restarted

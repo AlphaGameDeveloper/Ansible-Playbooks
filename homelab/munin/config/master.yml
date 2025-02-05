@@ -1,0 +1,8 @@
+# uses geerlingguy.munin role
+#
+
+# monitoring hosts:
+munin_hosts:
+  - name: twingate
+    address: 10.133.128.8
+    extra: ["use_node_name: yes"]

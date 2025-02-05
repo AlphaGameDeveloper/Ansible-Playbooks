@@ -1,0 +1,5 @@
+- hosts: penguin
+  become: yes
+  roles:
+    - geerlingguy.munin-node
+
