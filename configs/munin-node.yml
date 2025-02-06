@@ -1,0 +1,5 @@
+munin_node_bind_host: "*"
+munin_node_bind_port: "8080"
+
+munin_node_plugins:
+  - name: uptime
