@@ -1,0 +1,32 @@
+---
+- name: Setup Nginx on Debian
+  hosts: all
+  become: yes
+
+  tasks:
+    - name: Update APT package index
+      apt:
+        update_cache: yes
+
+    - name: Install Nginx
+      apt:
+        name: nginx
+        state: present
+
+    - name: Ensure Nginx is running
+      service:
+        name: nginx
+        state: started
+        enabled: yes
+
+    - name: Open HTTP port 80
+      ufw:
+        rule: allow
+        port: 80
+        proto: tcp
+        state: enabled
+
+    - name: Restart Nginx to apply changes
+      service:
+        name: nginx
+        state: restarted
