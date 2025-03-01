@@ -1,0 +1,75 @@
+---
+- name: Deploy FRC2025 PiFFL Vision System
+  hosts: all
+  become: yes
+
+  vars:
+    app_dir: /opt/PiFFL
+    service_user: root 
+    venv_dir: "{{ app_dir }}/venv"
+    repo_url: "https://AlphaGameDeveloper:{{ github_secret }}@github.com/PenguinEmpire/FRC2025-PiFFL.git"
+
+  tasks:
+    - name: Ensure required packages are installed
+      apt:
+        name:
+          - git
+          - cmake
+          - libgl1
+          - python3
+          - python3-venv
+          - python3-pip
+        state: present
+        update_cache: yes
+
+    - name: Clone the repository
+      git:
+        repo: "{{ repo_url }}"
+        dest: "{{ app_dir }}"
+        version: python-networktables
+
+    - name: Create a virtual environment
+      command: python3 -m venv "{{ venv_dir }}"
+      args:
+        creates: "{{ venv_dir }}/bin/activate"
+
+    - name: Install Python dependencies
+      pip:
+        requirements: "{{ app_dir }}/requirements.txt"
+        virtualenv: "{{ venv_dir }}"
+
+    - name: Deploy the templated service file
+      template:
+        src: "piffl.service.j2"
+        dest: /etc/systemd/system/piffl.service
+        mode: '0644'
+      register: service_file
+
+    - name: Reload systemd daemon
+      systemd:
+        daemon_reload: yes
+      when: service_file.changed
+
+    - name: Enable athe PiFFL service
+      systemd:
+        name: piffl
+        enabled: yes
+        state: restarted
+      register: service_status
+    
+    - name: show
+      debug:
+        var: service_status
+    # - name: Restart if it was running already
+    #   systemd:
+    #     name: piffl
+    #     state: restarted
+    #   when: service_status
+
+    - name: Ensure the application directory has the correct permissions
+      file:
+        path: "{{ app_dir }}"
+        state: directory
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: '0755'
