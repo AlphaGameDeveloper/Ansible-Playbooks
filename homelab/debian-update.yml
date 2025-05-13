@@ -1,28 +1,23 @@
----
-- name: Update all Debian machines
-  hosts: all
-  become: yes
-  tasks:
-    - name: Update apt cache
-      apt:
-        update_cache: yes
+- name: Update apt cache
+  apt:
+    update_cache: yes
 
-    - name: Upgrade all packages
-      apt:
-        upgrade: dist
-        autoclean: yes
+- name: Upgrade all packages
+  apt:
+    upgrade: dist
+    autoclean: yes
 
-    - name: Remove unneeded packages
-      apt:
-        autoremove: yes
-        
-    - name: Check if a reboot is required.
-      ansible.builtin.stat:
-        path: /var/run/reboot-required
-        get_checksum: no
-      register: reboot_file
-      
-    - name: Reboot the server if required
-      ansible.builtin.reboot:
+- name: Remove unneeded packages
+  apt:
+    autoremove: yes
+    
+- name: Check if a reboot is required.
+  ansible.builtin.stat:
+    path: /var/run/reboot-required
+    get_checksum: no
+  register: reboot_file
+  
+- name: Reboot the server if required
+  ansible.builtin.reboot:
 
-      when: reboot_file.stat.exists == true
+  when: reboot_file.stat.exists == true

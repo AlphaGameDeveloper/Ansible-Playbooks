@@ -1,0 +1,47 @@
+# Copyright (c) 2025 Damien Boisvert (AlphaGameDeveloper)
+# 
+# This software is released under the MIT License.
+# https://opensource.org/licenses/MIT
+
+# this playbook sets up a new container from zero
+# it is meant to be run on a new container
+
+- name: Setup a new Proxmox container
+  hosts: containers
+  become: true
+  gather_facts: true
+  
+  vars:
+    munin_plugins:
+      - contrib/traffic
+    packages:
+      - curl
+      - git
+      - net-tools
+      - htop
+      
+  tasks:
+    - import_tasks: homelab/permit-root-login.yml
+    - name: force colored command line
+      ansible.builtin.lineinfile:
+        path: /root/.bashrc
+        regexp: '^#force_color_prompt=yes'
+        line: 'force_color_prompt=yes'
+        state: present
+    - name: set timezone to America/Los_Angeles
+      ansible.builtin.timezone:
+        name: America/Los_Angeles
+    - name: set locale to en_US.UTF-8
+      ansible.builtin.locale_gen:
+        name: en_US.UTF-8
+        state: present
+
+    - import_tasks: homelab/add-ssh-key.yml
+#    - import_tasks: homelab/smtp.yml
+    - import_tasks: homelab/munin-node.yml
+    - import_tasks: homelab/debian-update.yml
+    - name: Install useful packages
+      ansible.builtin.apt:
+        name: "{{ item }}"
+        state: present
+      loop: "{{ packages }}"

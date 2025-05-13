@@ -1,0 +1,30 @@
+- name: Install munin-node
+  apt:
+    name: munin-node
+    state: present
+    update_cache: true
+
+- name: Ensure Munin master IP is allowed
+  lineinfile:
+    path: /etc/munin/munin-node.conf
+    line: 'allow ^10\.0\.0\.\d+$'
+    state: present
+  register: munin_node_config
+
+- name: Update Munin repos
+  command: munin-get update
+  register: result
+  changed_when: false # can't find a way to check if it changed
+
+- name: Install Munin plugins
+  command: munin-get install {{ item }}
+  register: result
+  changed_when: "'already installed' not in result.stderr"
+  loop: "{{ munin_plugins | default([]) }}"
+  when: munin_plugins is defined
+
+- name: Restart munin-node
+  service:
+    name: munin-node
+    state: restarted
+  when: munin_node_config.changed

@@ -1,0 +1,18 @@
+# enable-root-login.yml
+- name: Ensure root login is enabled in SSH config
+  become: true
+  lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^#?PermitRootLogin\s+.*'
+    line: 'PermitRootLogin yes'
+    state: present
+    backup: true  # creates a backup before modifying
+    create: yes
+  register: sshd_config
+
+- name: Restart SSH service
+  become: true
+  service:
+    name: ssh
+    state: restarted
+  when: sshd_config.changed

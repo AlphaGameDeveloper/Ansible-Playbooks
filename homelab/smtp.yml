@@ -1,0 +1,72 @@
+# Copyright (c) 2025 Damien Boisvert (AlphaGameDeveloper)
+# 
+# This software is released under the MIT License.
+# https://opensource.org/licenses/MIT
+
+---
+
+- hosts: all
+  tasks:
+    - name: Check if /nosmtp file exists
+      stat:
+        path: /nosmtp
+      register: nosmtp_file
+
+    - name: Fail if /nosmtp exists or hostname is smtp-server
+      fail:
+        msg: "Skipping playbook execution because /nosmtp exists or hostname is smtp-server."
+      when: nosmtp_file.stat.exists or ansible_hostname == "smtp-server"
+
+    - name: Add smtp-server.internal to /etc/hosts
+      lineinfile:
+        path: /etc/hosts
+        line: "10.0.0.204\tsmtp-server.internal"
+        state: present
+
+    - name: Install necessary packages
+      apt:
+        name: 
+          - postfix
+          - libsasl2-modules
+        state: present
+        update_cache: yes
+
+    - name: Set up the main.cf configuration for SMTP relay
+      blockinfile:
+        path: /etc/postfix/main.cf
+        create: yes
+        block: |
+          relayhost = [10.0.0.204n]:25
+          smtp_use_tls = yes
+          smtp_tls_security_level = encrypt
+          smtp_tls_CAfile = /etc/ssl/certs/ca-certificates.crt
+
+          # SASL authentication (if needed)
+          smtp_sasl_auth_enable = yes
+          smtp_sasl_password_maps = hash:/etc/postfix/sasl_passwd
+          smtp_sasl_security_options = noanonymous
+          smtp_sasl_tls_security_options = noanonymous
+
+    - name: Create or update the sasl_passwd file if authentication is required
+      copy:
+        dest: /etc/postfix/sasl_passwd
+        content: |
+          [smtp-server.internal]:25 username:password
+        mode: '0600'
+      when: smtp_auth_required is defined and smtp_auth_required == true
+
+    - name: Generate hashed version of sasl_passwd (if using SASL)
+      command: postmap /etc/postfix/sasl_passwd
+      when: smtp_auth_required is defined and smtp_auth_required == true
+
+    - name: Reload postfix to apply changes
+      systemd:
+        name: postfix
+        state: reloaded
+        enabled: yes
+
+    - name: Ensure Postfix is started
+      systemd:
+        name: postfix
+        state: started
+        enabled: yes
