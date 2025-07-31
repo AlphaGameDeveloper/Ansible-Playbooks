@@ -1,0 +1,100 @@
+# Copyright (c) 2025 Damien Boisvert (AlphaGameDeveloper)
+# 
+# This software is released under the MIT License.
+# https://opensource.org/licenses/MIT
+
+---
+
+- block:
+  - name: Add smtp-server.internal to /etc/hosts
+    lineinfile:
+      path: /etc/hosts
+      line: "10.0.0.204\tsmtp-server.internal"
+      state: present
+
+  - name: Install necessary packages
+    apt:
+      name: 
+        - postfix
+        - mailutils
+      state: present
+      update_cache: yes
+
+  - name: Create postfix main.cf configuration from template
+    template:
+      src: templates/postfix_main.cf.j2
+      dest: /etc/postfix/main.cf
+      owner: root
+      group: root
+      mode: '0644'
+
+  - name: Create aliases file to forward root mail
+    template:
+      src: templates/aliases.j2
+      dest: /etc/aliases
+      owner: root
+      group: root
+      mode: '0644'
+
+  - name: Update aliases database
+    command: newaliases
+    changed_when: true
+
+  - name: Enable cron mail
+    lineinfile:
+      path: /etc/default/cron
+      regexp: '^MAILTO='
+      line: 'MAILTO=root'
+      state: present
+      create: yes
+
+  - name: Configure systemd to send emails
+    blockinfile:
+      path: /etc/systemd/system.conf
+      block: |
+        [Manager]
+        LogTarget=email
+        LogLevel=info
+        SendSyslogToWall=no
+      create: yes
+      marker: "# {mark} ANSIBLE MANAGED BLOCK - SYSTEMD EMAIL CONFIG"
+
+  - name: Create directory for systemd email configuration
+    file:
+      path: /etc/systemd/system/systemd-journal-upload.service.d
+      state: directory
+      mode: '0755'
+
+  - name: Configure systemd journal email settings
+    copy:
+      content: |
+        [Service]
+        Environment="SYSTEMD_LOG_TARGET=email"
+        Environment="SYSTEMD_LOG_LEVEL=info"
+      dest: /etc/systemd/system/systemd-journal-upload.service.d/override.conf
+      mode: '0644'
+
+  - name: Reload systemd to apply changes
+    systemd:
+      daemon_reload: yes
+
+  - name: Create cron job to check and forward root mail
+    cron:
+      name: "Check and forward root mail"
+      user: root
+      minute: "*/10"
+      job: "[ -s /var/mail/root ] && cat /var/mail/root | sendmail -t && cat /dev/null > /var/mail/root"
+      state: present
+
+  - name: Reload postfix to apply changes
+    systemd:
+      name: postfix
+      state: reloaded
+      enabled: yes
+
+  - name: Ensure Postfix is started
+    systemd:
+      name: postfix
+      state: started
+      enabled: yes
+  when: not (nosmtp is defined and nosmtp)

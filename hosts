@@ -1,9 +1,18 @@
 [homelab:vars]
 ansible_user=root
 ansible_ssh_private_key_file=~/.ssh/id_rsa_homelab
+ansible_ssh_common_args="-A -J damien@damienboisvert.com"
 
 [homelab]
 goliath.internal ansible_host=goliath.internal
+
+[say]
+stanthonyyouth-1 ansible_host=10.0.0.167
+stanthonyyouth-2 ansible_host=10.0.0.168
+
+[minecraft]
+smhs-minecraft-server.internal ansible_host=10.0.0.35
+nerds-minecraft-server.internal ansible_host=10.0.0.205
 
 [containers]
 mysql.internal ansible_host=mysql.internal
@@ -13,13 +22,19 @@ calibre-server.internal ansible_host=calibre-server.internal
 agd-darkweb.internal ansible_host=10.0.0.201
 invidious.internal ansible_host=10.0.0.138
 openvpn.internal ansible_host=openvpn.internal
-smhs-minecraft-server.internal ansible_host=10.0.0.35
 twingate-connector.internal ansible_host=10.0.0.202
 munin.internal ansible_host=10.0.0.203
 reposilite.internal ansible_host=10.0.0.14
-smtp-server.internal ansible_host=10.0.0.204
-nerds-minecraft-server.internal ansible_host=10.0.0.205
+smtp-server.internal ansible_host=10.0.0.204 nosmtp=true
 navidrome.internal ansible_host=10.0.0.206
+alphagame-dev.internal ansible_host=10.0.0.13
+seen-backend.internal ansible_host=10.0.0.58
+proxmox-mcp.internal ansible_host=10.0.0.208
+stanthonyyouth.internal ansible_host=10.0.0.69
+
+[containers:children]
+minecraft
+
 [arch_live:vars]
 ansible_user=root
 ansible_ssh_common_args='-o StrictHostKeyChecking=no'

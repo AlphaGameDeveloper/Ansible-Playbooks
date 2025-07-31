@@ -1,0 +1,59 @@
+# Copyright (c) 2025 Damien Boisvert (AlphaGameDeveloper)
+# 
+# This software is released under the MIT License.
+# https://opensource.org/licenses/MIT
+
+- name: ZSH-SETUP | Ensure ZSH is installed
+  ansible.builtin.apt:
+    name: zsh
+    state: present
+    update_cache: yes
+  become: true
+
+- name: ZSH-SETUP | Ensure required Python packages are installed
+  ansible.builtin.apt:
+    name: "{{ item }}"
+    state: present
+  become: true
+  loop:
+    - python3-requests
+
+- name: ZSH-SETUP | Get ZSH binary path
+  ansible.builtin.command:
+    cmd: which zsh
+  register: zsh_path
+  changed_when: false
+- name: ZSH-SETUP | Set ZSH as the default shell
+  ansible.builtin.command:
+    cmd: chsh -s {{ zsh_path.stdout }}
+  when: ansible_user_shell != '/bin/zsh'
+
+- name: ZSH-SETUP | Check if Oh My Zsh is installed
+  ansible.builtin.stat:
+    path: ~/.oh-my-zsh
+  register: oh_my_zsh
+
+- name: ZSH-SETUP | Install Oh My Zsh
+  ansible.builtin.shell:
+    cmd: curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh | sh
+    creates: ~/.oh-my-zsh
+  when: not oh_my_zsh.stat.exists
+
+- name: ZSH-SETUP | Clone dotfiles repository
+  ansible.builtin.git:
+    repo: 'https://github.com/AlphaGameDeveloper/Dotfiles.git'
+    dest: ~/.dotfiles
+
+- name: ZSH-SETUP | Create .zshrc file
+  ansible.builtin.copy:
+    dest: ~/.zshrc
+    content: |
+      # Zsh configuration
+      source ~/.dotfiles/zsh/rc.sh
+
+- name: ZSH-SETUP | Create .p10k.zsh file
+  ansible.builtin.copy:
+    dest: ~/.p10k.zsh
+    content: |
+      # Powerlevel10k configuration
+      source ~/.dotfiles/zsh/p10k.zsh

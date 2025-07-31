@@ -1,0 +1,57 @@
+---
+- name: Notify on successful SSH logins
+  hosts: homelab
+  become: true
+
+  vars:
+    discord_webhook_url: "https://discord.com/api/webhooks/1377441392762294373/h4Yz-BIIQjp_Xx3oWzZOfA9p0FC3Wthg4AFpci8nOrpPFKyW0uFxxzjmi6QASZlirPno"
+
+  tasks:
+
+    - name: Ensure script directory exists
+      file:
+        path: /usr/local/bin
+        state: directory
+        mode: '0755'
+
+    - name: Install SSH login Discord notification script with embed
+      copy:
+        dest: /usr/local/bin/login-discord-hook.sh
+        mode: '0755'
+        owner: root
+        group: root
+        content: |
+          #!/bin/bash
+          user="$PAM_USER"
+          rhost="$PAM_RHOST"
+          time="$(date '+%Y-%m-%d %H:%M:%S')"
+          hostname="$(hostname)"
+          curl -H "Content-Type: application/json" \
+               -X POST \
+               -d '{
+                 "username": "'"$hostname"' [ssh-monitor]",
+                 "embeds": [{
+                   "title": "✅ Successful SSH Login",
+                   "color": 65280,
+                   "fields": [
+                     { "name": "User", "value": "'"$user"'", "inline": true },
+                     { "name": "IP", "value": "'"$rhost"'", "inline": true },
+                     { "name": "Time", "value": "'"$time"'", "inline": false }
+                   ],
+                   "footer": { "text": "'"$hostname"'" }
+                 }]
+               }' \
+               {{ discord_webhook_url }}
+
+    - name: Ensure pam_exec line is present in sshd PAM config
+      lineinfile:
+        path: /etc/pam.d/sshd
+        line: "session optional pam_exec.so /usr/local/bin/login-discord-hook.sh"
+        state: present
+        insertafter: EOF
+
+    - name: Restart SSH service
+      service:
+        name: ssh
+        state: restarted
+      when: ansible_facts['os_family'] != 'RedHat'  # adjust as needed
