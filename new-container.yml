@@ -7,12 +7,13 @@
 # it is meant to be run on a new container
 
 - name: Setup a new Proxmox container
-  hosts: containers
+  hosts: lxc
   become: true
   gather_facts: true
   
   vars:
-
+    munin_master_host: goliath
+    gpg_key_id: "4206837B898B4BD2"
     install_zsh_dotfiles: false
     uninstall_zsh_dotfiles: false
     smtp: false
@@ -25,11 +26,11 @@
       - htop
       
   tasks:
-    - name: Ensure ZSH options make sense
-      ansible.builtin.assert:
-        that:
-          - not ((install_zsh_dotfiles | bool) and (uninstall_zsh_dotfiles | bool))
-        fail_msg: "install_zsh_dotfiles and uninstall_zsh_dotfiles cannot both be true"
+    # - name: Ensure ZSH options make sense
+    #   ansible.builtin.assert:
+    #     that:
+    #       - not ((install_zsh_dotfiles | bool) and (uninstall_zsh_dotfiles | bool))
+    #     fail_msg: "install_zsh_dotfiles and uninstall_zsh_dotfiles cannot both be true"
     - import_tasks: homelab/new-container-setup/permit-root-login.yml
     - name: force colored command line
       ansible.builtin.lineinfile:
@@ -45,15 +46,14 @@
         name: en_US.UTF-8
         state: present
 
-    - import_tasks: homelab/new-container-setup/add-ssh-key.yml
+    - import_tasks: homelab/new-container-setup/security.yml
     - import_tasks: homelab/new-container-setup/smtp.yml
       when: smtp | bool
     - import_tasks: homelab/new-container-setup/munin-node.yml
     - import_tasks: homelab/new-container-setup/debian-update.yml
-    - import_tasks: homelab/new-container-setup/zsh-setup.yml
-      when: install_zsh_dotfiles | bool
+    # - import_tasks: homelab/new-container-setup/zsh-setup.yml
+    #   when: install_zsh_dotfiles | bool
     - import_tasks: homelab/new-container-setup/zsh-uninstall.yml
-      when: uninstall_zsh_dotfiles | bool
 
     - name: Install useful packages
       ansible.builtin.apt:

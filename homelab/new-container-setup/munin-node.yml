@@ -1,4 +1,4 @@
-- name: Install munin-node
+- name: Install Munin Node
   apt:
     name: munin-node
     state: present
@@ -14,7 +14,7 @@
 - name: Update Munin repos
   command: munin-get update
   register: result
-  changed_when: false # can't find a way to check if it changed
+  changed_when: "'already up to date' not in result.stderr"
 
 - name: Install Munin plugins
   command: munin-get install {{ item }}
@@ -28,3 +28,30 @@
     name: munin-node
     state: restarted
   when: munin_node_config.changed
+
+- name: Get hostname and IP address
+  set_fact:
+    ansible_hostname: "{{ ansible_hostname | default(ansible_fqdn) }}"
+    ansible_default_ipv4: "{{ ansible_default_ipv4 | default(ansible_all_ipv4_addresses[0]) }}"
+
+- name: Add node to Munin master
+  blockinfile:
+    path: /etc/munin/munin.conf
+    block: |
+      [{{ ansible_hostname }}]
+        address {{ ansible_default_ipv4.address }}
+        use_node_name yes
+    marker: "# {mark} ANSIBLE MANAGED BLOCK FOR {{ ansible_hostname }}"
+    append_newline:  yes
+    prepend_newline: yes
+  delegate_to: "{{ munin_master_host }}"
+  delegate_facts: true
+  register: munin_master_config
+
+- name: Restart munin on master
+  service:
+    name: munin
+    state: restarted
+  when: munin_master_config.changed
+  delegate_to: "{{ munin_master_host }}"
+  delegate_facts: true

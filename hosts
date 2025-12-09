@@ -1,10 +1,35 @@
+[all:vars]
+ansible_python_interpreter=auto_silent
+
+[all:children]
+homelab
+lxc
+say
+containers
+
+[lxc:vars]
+ansible_user=root
+ansible_python_interpreter=auto_silent
+ansible_ssh_private_key_file=~/.ssh/id_rsa_homelab
+ansible_ssh_common_args="-A -J damien@damienboisvert.com -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+
 [homelab:vars]
 ansible_user=root
 ansible_ssh_private_key_file=~/.ssh/id_rsa_homelab
-ansible_ssh_common_args="-A -J damien@damienboisvert.com"
+ansible_ssh_common_args="-A -o ControlMaster=no -J damien@damienboisvert.com -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
 
 [homelab]
-goliath.internal ansible_host=goliath.internal
+goliath ansible_host=goliath.internal ansible_ssh_private_key_file=~/.ssh/id_rsa_goliath
+
+[lxc]
+agd-darkweb ansible_host=10.0.0.201
+reposilite ansible_host=10.0.0.14
+seen-backend ansible_host=10.0.0.58
+getmyshittogether-machine ansible_host=10.0.0.52
+dose-ddns ansible_host=192.168.0.202
+agb-ddns ansible_host=10.0.0.198
+github-runner ansible_host=10.0.0.82
+boisvert-internal ansible_host=10.0.0.34
 
 [say]
 stanthonyyouth-1 ansible_host=10.0.0.167

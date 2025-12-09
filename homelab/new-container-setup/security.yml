@@ -1,0 +1,89 @@
+# Copyright (c) 2025 Damien Boisvert (AlphaGameDeveloper)
+# 
+# This software is released under the MIT License.
+# https://opensource.org/licenses/MIT
+
+- name: Security/GPG | Ensure we have GPG
+  apt:
+    name: gnupg
+    state: present
+    update_cache: true
+
+- name: Security/GPG | Check if the GPG key is already added
+  command: gpg --list-keys "{{ gpg_key_id }}"
+  changed_when: false
+  failed_when: false
+  register: gpg_keys
+
+- name: Security/GPG | Copy the GPG key to the server
+  copy:
+    src: "security/gpg-public-key.asc"
+    dest: "/tmp/{{ gpg_key_id }}.asc"
+  when: gpg_keys.rc != 0
+
+- name: Security/GPG | Import the GPG key
+  command: gpg --import /tmp/{{ gpg_key_id }}.asc
+  changed_when: true
+  when: gpg_keys.rc != 0
+
+- name: Security/GPG | Grant full trust to the key
+  command: >
+    echo "{{ gpg_key_id }}:6:" | gpg --import-ownertrust
+  changed_when: true
+  when: gpg_keys.rc != 0
+
+- name: Security/GPG | Remove the temporary GPG key file
+  file:
+    path: "/tmp/{{ gpg_key_id }}.asc"
+    state: absent
+  when: gpg_keys.rc != 0
+
+- name: Security/GPG | Verify GPG key is present
+  command: gpg --list-keys "{{ gpg_key_id }}"
+  changed_when: false
+
+- name: Security/CA | Ensure CA certificates package is installed
+  apt:
+    name: ca-certificates
+    state: present
+
+- name: Security/CA | Check if Boisvert CA certificate is already installed
+  stat:
+    path: "/usr/local/share/ca-certificates/boisvert-ca.crt"
+  changed_when: false
+  failed_when: false
+  register: ca_cert_check
+
+- name: Security/CA | Send the Boisvert CA certificate to the server
+  copy:
+    src: "security/boisvert-ca.crt"
+    dest: "/usr/local/share/ca-certificates/boisvert-ca.crt"
+    mode: '0644'
+  when: not ca_cert_check.stat.exists
+
+- name: Security/CA | Update CA certificates
+  command: update-ca-certificates
+  changed_when: true
+  register: result
+  when: not ca_cert_check.stat.exists
+
+- name: Security/SSH | Send the /opt/boisvert-ssh-keys file
+  copy:
+    src: "security/boisvert-ssh-keys"
+    dest: "/opt/boisvert-ssh-keys"
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Security/SSH | Ensure SSH honors /opt/boisvert-ssh-keys in sshd_config
+  lineinfile:
+    path: /etc/ssh/sshd_config
+    line: 'AuthorizedKeysFile /opt/boisvert-ssh-keys'
+    state: present
+  register: sshd_config_ssh_keys
+
+- name: Security/SSH | Restart SSH service if sshd_config was updated for boisvert-ssh-keys
+  service:
+    name: ssh
+    state: restarted
+  when: sshd_config_ssh_keys.changed
